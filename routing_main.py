@@ -32,14 +32,18 @@ if __name__ == "__main__":
     vendor_data['Geocodes'] = vendor_geocodes
     vendor_data = vendor_data.dropna(subset=['Geocodes'])
     vendor_data_dict = vendor_data.set_index('Vendor code').to_dict(orient='index')
-    
+    routes = {}
+    route_index = 0
+
     for vendor in vendor_data_dict:
         
         # calculate the optimal driving route between the plant and each vendor using Graphhopper api
         coords = [vendor_data_dict[vendor]['Geocodes'][::-1], plant_geo]
         client = Graphhopper(api_key='your api key goes here')
         try:
+            route_index += 1
             route = client.directions(locations=coords, profile="truck")
+            routes.update({route_index:{'route':route,'distance':route.distance}})
 
             points = [point[::-1] for point in route.geometry]
             vendor_loc = vendor_data_dict[vendor]['Vendor - City'] + ' ' + vendor_data_dict[vendor]['Vendor - Country Key']
@@ -55,8 +59,13 @@ if __name__ == "__main__":
         except:
             pass
    
-    folium.Marker(location=[coords[1][1],coords[1][0]],popup='DU01').add_to(m)
+    folium.Marker(location=[coords[1][1],coords[1][0]],popup='Plant').add_to(m)
     
+    # find shortest route and display in blue
+    best_route = min(routes.keys(), key=(lambda k: routes[k]['distance']))
+    points = [point[::-1] for point in routes[best_route]['route'].geometry]
+    folium.PolyLine(points, color="blue", weight=2.5, opacity=1).add_to(m)
+
     data = io.BytesIO()
     m.save(data, close_file=False)
 
